@@ -12359,6 +12359,9 @@ struct VerticalTabsSidebar: View, Equatable {
             .onChange(of: renderContext.workspaceIds) { _, _ in
                 refreshExtensionSidebarObservationPublishers(tabs: renderContext.tabs)
             }
+            .onChange(of: renderContext.tabs.map { $0.sidebarExtensionPanes() }) { _, _ in
+                refreshExtensionSidebarSnapshot()
+            }
             .onDisappear {
                 clearExtensionSidebarObservationPublishers()
             }

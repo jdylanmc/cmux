@@ -4,6 +4,7 @@ import CmuxSidebar
 import CmuxWorkspaces
 @_spi(CmuxHostTransport) import CmuxExtensionKit
 import SwiftUI
+import Observation
 import Testing
 #if canImport(cmux_DEV)
 @testable import cmux_DEV
@@ -12,6 +13,10 @@ import Testing
 #endif
 
 @Suite struct SidebarWorkspaceSnapshotRefreshPolicyTests {
+    @MainActor private final class PlacementChange {
+        var observed = false
+    }
+
     @Test @MainActor
     func extensionPanesTrackRealTabOrderAndMovesRatherThanFocus() throws {
         let workspace = Workspace(title: "Sidebar pane contract")
@@ -26,7 +31,14 @@ import Testing
 
         workspace.focusPanel(second.id)
         #expect(workspace.sidebarExtensionPanes() == initial)
+        let placementChanged = PlacementChange()
+        withObservationTracking {
+            _ = workspace.sidebarExtensionPanes()
+        } onChange: {
+            MainActor.assumeIsolated { placementChanged.observed = true }
+        }
         #expect(workspace.moveSurface(panelId: second.id, toPane: paneB, atIndex: 0, focus: false))
+        #expect(placementChanged.observed)
         let moved = try #require(workspace.sidebarExtensionPanes())
         #expect(moved.map(\.surfaceIDs) == [[first], [second.id, split.id]])
         #expect(workspace.moveSurface(panelId: split.id, toPane: paneB, atIndex: 0, focus: false))
