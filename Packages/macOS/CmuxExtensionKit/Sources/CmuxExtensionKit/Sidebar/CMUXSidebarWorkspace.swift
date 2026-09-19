@@ -13,6 +13,12 @@ public struct CmuxSidebarWorkspace: Codable, Equatable, Identifiable, Sendable {
     public var listeningPorts: [Int]
     public var pullRequestURLs: [String]
     public var surfaces: [CmuxSidebarSurface]
+    /// Split panes in spatial order (first/top before second/bottom).
+    ///
+    /// Requires surface metadata access. Nil means unavailable, including older
+    /// hosts; an empty array means the host reported no panes. Surfaces not in a
+    /// pane remain ungrouped. Consumers must not infer membership from titles.
+    public var panes: [CmuxSidebarPane]?
 
     public init(
         id: UUID,
@@ -26,7 +32,8 @@ public struct CmuxSidebarWorkspace: Codable, Equatable, Identifiable, Sendable {
         latestNotification: String? = nil,
         listeningPorts: [Int] = [],
         pullRequestURLs: [String] = [],
-        surfaces: [CmuxSidebarSurface] = []
+        surfaces: [CmuxSidebarSurface] = [],
+        panes: [CmuxSidebarPane]? = nil
     ) {
         self.id = id
         self.title = title
@@ -40,6 +47,7 @@ public struct CmuxSidebarWorkspace: Codable, Equatable, Identifiable, Sendable {
         self.listeningPorts = listeningPorts
         self.pullRequestURLs = pullRequestURLs
         self.surfaces = surfaces
+        self.panes = panes
     }
 
     public init(from decoder: Decoder) throws {
@@ -56,6 +64,7 @@ public struct CmuxSidebarWorkspace: Codable, Equatable, Identifiable, Sendable {
         listeningPorts = try container.decode([Int].self, forKey: .listeningPorts)
         pullRequestURLs = try container.decode([String].self, forKey: .pullRequestURLs)
         surfaces = try container.decodeIfPresent([CmuxSidebarSurface].self, forKey: .surfaces) ?? []
+        panes = try container.decodeIfPresent([CmuxSidebarPane].self, forKey: .panes)
     }
 
     @_spi(CmuxHostTransport)
@@ -73,7 +82,8 @@ public struct CmuxSidebarWorkspace: Codable, Equatable, Identifiable, Sendable {
             latestNotification: scopeSet.contains(.notifications) ? latestNotification : nil,
             listeningPorts: scopeSet.contains(.networkPorts) ? listeningPorts : [],
             pullRequestURLs: scopeSet.contains(.pullRequests) ? pullRequestURLs : [],
-            surfaces: scopeSet.contains(.surfaceMetadata) ? surfaces.map { $0.filtered(for: scopeSet) } : []
+            surfaces: scopeSet.contains(.surfaceMetadata) ? surfaces.map { $0.filtered(for: scopeSet) } : [],
+            panes: scopeSet.contains(.surfaceMetadata) ? panes : nil
         )
     }
 }

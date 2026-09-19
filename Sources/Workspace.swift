@@ -19,6 +19,7 @@ import CmuxSettings
 import CmuxBrowser
 import CmuxCanvasUI
 import CmuxPanes
+import CmuxExtensionKit
 import CmuxSidebar
 import CmuxNotifications
 import Combine
@@ -6224,6 +6225,22 @@ final class Workspace: Identifiable, ObservableObject, FilePreviewTabMetadataHos
             paneTabs: paneTabs,
             fallbackPanelIds: fallbackPanelIds
         )
+    }
+
+    func sidebarExtensionPanes() -> [CmuxSidebarPane]? {
+        let controller = bonsplitController
+        let panesByID = Dictionary(uniqueKeysWithValues: controller.allPaneIds.map { ($0.id.uuidString, $0) })
+        var result: [CmuxSidebarPane] = []
+        for id in controller.treeSnapshot().orderedPaneIds {
+            guard let pane = panesByID[id] else { return nil }
+            var surfaceIDs: [UUID] = []
+            for tab in controller.tabs(inPane: pane) {
+                guard let panelID = panelIdFromSurfaceId(tab.id), panels[panelID] != nil else { return nil }
+                surfaceIDs.append(panelID)
+            }
+            result.append(.init(id: pane.id, surfaceIDs: surfaceIDs))
+        }
+        return result
     }
 
     func sidebarFinderDirectory() -> String? {
