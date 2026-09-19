@@ -12,6 +12,15 @@ workspace snapshot and typed action channels:
 
 The snapshot includes workspace identity, title, detail text, paths, git branch, unread state, listening ports, pull request URLs, and shared surface metadata. It does not expose terminal buffers, shell history, environment variables, secrets, or arbitrary filesystem access.
 
+With `workspaceMetadata` and `surfaceMetadata` access, `workspace.panes` reports
+stable pane IDs in spatial split-tree order, with `surfaceIDs` in tab-bar order.
+Membership describes visual placement, never agent ownership. Focus does not
+change the order. Tab moves, reorders, splits and closures replace this data in
+subsequent snapshots. `nil` explicitly means unavailable (including older
+hosts); `[]` means no panes. Keep surfaces not listed in a pane ungrouped, and
+do not infer membership from titles, directories or selected tabs. The optional
+field is wire-compatible with existing sidebar v2 hosts and extensions.
+
 Host-side lifecycle, discovery, and display belong in
 `Packages/macOS/CmuxSidebar/Sources/CmuxSidebar/ExtensionHost`.
 Internal cmux-owned sidebar provider/render models live in `Packages/macOS/CmuxSidebarProviderKit`.

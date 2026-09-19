@@ -4,6 +4,7 @@ import CmuxSidebar
 import CmuxWorkspaces
 @_spi(CmuxHostTransport) import CmuxExtensionKit
 import SwiftUI
+import Observation
 import Testing
 #if canImport(cmux_DEV)
 @testable import cmux_DEV
@@ -12,6 +13,54 @@ import Testing
 #endif
 
 @Suite struct SidebarWorkspaceSnapshotRefreshPolicyTests {
+    @MainActor private final class PlacementChange {
+        var observed = false
+    }
+
+    @Test @MainActor
+    func extensionPanesTrackRealTabOrderAndMovesRatherThanFocus() throws {
+        let workspace = Workspace(title: "Sidebar pane contract")
+        let first = try #require(workspace.focusedPanelId)
+        let paneA = try #require(workspace.paneId(forPanelId: first))
+        let second = try #require(workspace.newTerminalSurface(inPane: paneA, focus: false))
+        let split = try #require(workspace.newTerminalSplit(from: first, orientation: .horizontal, focus: false))
+        let paneB = try #require(workspace.paneId(forPanelId: split.id))
+        let initial = try #require(workspace.sidebarExtensionPanes())
+        #expect(initial.map(\.id) == [paneA.id, paneB.id])
+        #expect(initial.map(\.surfaceIDs) == [[first, second.id], [split.id]])
+
+        workspace.focusPanel(second.id)
+        #expect(workspace.sidebarExtensionPanes() == initial)
+        let placementChanged = PlacementChange()
+        withObservationTracking {
+            _ = workspace.sidebarExtensionPanes()
+        } onChange: {
+            MainActor.assumeIsolated { placementChanged.observed = true }
+        }
+        #expect(workspace.moveSurface(panelId: second.id, toPane: paneB, atIndex: 0, focus: false))
+        #expect(placementChanged.observed)
+        let moved = try #require(workspace.sidebarExtensionPanes())
+        #expect(moved.map(\.surfaceIDs) == [[first], [second.id, split.id]])
+        #expect(workspace.moveSurface(panelId: split.id, toPane: paneB, atIndex: 0, focus: false))
+        #expect(workspace.sidebarExtensionPanes()?.last?.surfaceIDs == [split.id, second.id])
+    }
+
+    @Test @MainActor
+    func layoutOnlyChangeInvalidatesExtensionSnapshotCache() throws {
+        let workspaceID = UUID(), paneID = UUID(), a = UUID(), b = UUID()
+        var workspace = CmuxSidebarWorkspace(
+            id: workspaceID, title: "Pane",
+            surfaces: [a, b].map { .init(id: $0, title: "Tab") },
+            panes: [.init(id: paneID, surfaceIDs: [a, b])]
+        )
+        let cache = CMUXSidebarSnapshotCache()
+        let initial = cache.replace(with: .init(sequence: 1, selectedWorkspaceID: workspaceID, workspaces: [workspace]))
+        workspace.panes = [.init(id: paneID, surfaceIDs: [b, a])]
+        let changed = cache.replace(with: .init(sequence: 1, selectedWorkspaceID: workspaceID, workspaces: [workspace]))
+        #expect(changed.sequence > initial.sequence)
+        #expect(changed.workspaces.first?.panes?.first?.surfaceIDs == [b, a])
+    }
+
     @Test @MainActor
     func extensionSnapshotCacheDoesNotInflateSequenceForIdenticalProviderContent() throws {
         let workspaceID = UUID()

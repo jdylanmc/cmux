@@ -12359,6 +12359,9 @@ struct VerticalTabsSidebar: View, Equatable {
             .onChange(of: renderContext.workspaceIds) { _, _ in
                 refreshExtensionSidebarObservationPublishers(tabs: renderContext.tabs)
             }
+            .onChange(of: renderContext.tabs.map { $0.sidebarExtensionPanes() }) { _, _ in
+                refreshExtensionSidebarSnapshot()
+            }
             .onDisappear {
                 clearExtensionSidebarObservationPublishers()
             }
@@ -12727,7 +12730,8 @@ struct VerticalTabsSidebar: View, Equatable {
 	                    latestNotification: workspace.latestNotificationText,
 	                    listeningPorts: workspace.listeningPorts,
 	                    pullRequestURLs: workspace.pullRequestURLs,
-	                    surfaces: cmuxSidebarSurfaces(for: workspace)
+	                    surfaces: cmuxSidebarSurfaces(for: workspace),
+	                    panes: tabManager.tabs.first(where: { $0.id == workspace.id })?.sidebarExtensionPanes()
 	                )
 	            }
 	        )
